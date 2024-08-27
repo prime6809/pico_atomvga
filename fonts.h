@@ -1207,6 +1207,7 @@ font_t fonts[] =
 #define FONT_6847T1     2
 
 #define DEFAULT_FONT    FONT_6847
+#define DEFAULT_FONT_NO 0
 #define FONT_COUNT      (sizeof(fonts) / sizeof(font_t))
 
 #define FONT_HEIGHT     12

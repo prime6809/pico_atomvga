@@ -117,6 +117,10 @@ volatile uint16_t       SAMBits;
 #define SAM_SG_MASK     0x0006
 #define SAM_SG_SHIFT    1
 
+
+#define SAM_MAP_MASK    0x8000
+#define SAM_MAP_SHIFT   15
+
 // Macros to get VDU memory base
 #define GetVidMemBase() ((SAMBits & SAM_VADDR_MASK) << SAM_VADDR_SHIFT)
 #define GetVidMemEnd()  (GetVidMemBase()+VID_MEM_SIZE)
@@ -125,6 +129,8 @@ volatile uint16_t       SAMBits;
 #define GetSAMMode()    (SAMBits & SAM_MODE_MASK)
 
 #define GetSAMSG()      ((SAMBits & SAM_SG_MASK) >> SAM_SG_SHIFT)
+
+#define GetSAMMap()     ((SAMBits & SAM_MAP_MASK) >> SAM_MAP_SHIFT)
 
 #define DEBUG_MESS  "DRAGON PICO VGA ADAPTER"
 
@@ -161,6 +167,7 @@ volatile uint16_t       SAMBits;
 #define DRAGON_CMD_LOADEE   0x09
 #define DRAGON_CMD_AUTOOFF  0x0A
 #define DRAGON_CMD_AUTOON   0x0B
+#define DRAGON_CMD_RESET    0x0C
 
 #define LOWER_START   0x00
 #define LOWER_END     0x40

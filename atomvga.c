@@ -24,6 +24,8 @@
 #include "pico/sync.h"
 #include "hardware/irq.h"
 #include "hardware/vreg.h"
+#include "hardware/clocks.h"
+
 #include "atomvga.h"
 #include "fonts.h"
 #include "platform.h"
@@ -68,6 +70,8 @@ volatile uint8_t status = STATUS_NONE;
 #define status_set(mask)    ((status & mask) ? true : false)
 #define extmode_set(mask)   ((memory[COL80_BASE] & mask) ? true : false)
 
+#define SetupIO(gpio,out,up,down)   do {if (gpio < 32) { gpio_init(gpio); gpio_set_dir(gpio,out); gpio_set_pulls(gpio,up,down);}; } while (0)
+
 // Initialise the GPIO pins - overrides whatever the scanvideo library did
 static void initialiseIO()
 {
@@ -91,6 +95,10 @@ static void initialiseIO()
     gpio_set_function(SEL1_PIN, GPIO_FUNC_PIO1);
     gpio_set_function(SEL2_PIN, GPIO_FUNC_PIO1);
     gpio_set_function(SEL3_PIN, GPIO_FUNC_PIO1);
+
+    // Set Phi2, E, R/W as inputs, *REQUIRED* for RP235x
+    SetupIO(test_PIN_1MHZ,false,true,false);     // Phi2 on 6502, E on 6809.
+    SetupIO(test_PIN_R_NW,false,true,false);     // R/W
 
     // LED
     gpio_init(LED_PIN);
@@ -328,7 +336,7 @@ void __no_inline_not_in_flash_func(main_loop())
     while (true)
     {
         // Get event from SM 0
-        u_int32_t reg = pio_sm_get_blocking(pio, 0);
+        uint32_t reg = pio_sm_get_blocking(pio, 0);
 
         // Is it a read to the COL80 I/O space?
         if ((reg & (0x1000000 | COL80_MASK)) == COL80_BASE)
@@ -339,9 +347,9 @@ void __no_inline_not_in_flash_func(main_loop())
         else if (reg & 0x1000000)
         {
             // write
-            u_int16_t address = reg & 0xFFFF;
+            uint16_t address = reg & 0xFFFF;
 
-            u_int8_t data = (reg & 0xFF0000) >> 16;
+            uint8_t data = (reg & 0xFF0000) >> 16;
             memory[address] = data;
         }
     }
@@ -355,13 +363,13 @@ void __no_inline_not_in_flash_func(main_loop())
     while (true)
     {
         // Get event from SM 0
-        u_int32_t reg = pio_sm_get_blocking(pio, 0);
+        uint32_t reg = pio_sm_get_blocking(pio, 0);
 
         // Is it a read or write opertaion?
         if (!(reg & 0x1000000))
         {
             // Get the address
-            u_int16_t address = reg;
+            uint16_t address = reg;
             // read
             if (address == COL80_STAT)
             {
@@ -393,9 +401,9 @@ void __no_inline_not_in_flash_func(main_loop())
         else
         {
             // Get the address
-            u_int16_t address = reg & 0xFFFF;
+            uint16_t address = reg & 0xFFFF;
             // write
-            u_int8_t data = (reg & 0xFF0000) >> 16;
+            uint8_t data = (reg & 0xFF0000) >> 16;
             memory[address] = data;
 #if (PLATFORM == PLATFORM_DRAGON)
             // Update SAM bits when written to
@@ -460,6 +468,9 @@ int main(void)
     }
     set_sys_clock_khz(sys_freq, true);
 
+    stdio_init_all();
+    printf("DragonVGA initialising........\n");
+
     switch_font(DEFAULT_FONT);
 
     memset((void *)memory, VDG_SPACE, 0x10000);
@@ -491,14 +502,17 @@ int main(void)
 
     //initialiseIO();
 
+    printf("Init input PIO\n");
     uint offset = pio_add_program(pio, &test_program);
     test_program_init(pio, 0, offset);
     pio_sm_set_enabled(pio, 0, true);
 
+    printf("Init output PIO\n");
     offset = pio_add_program(pio, &atomvga_out_program);
     atomvga_out_program_init(pio, 1, offset);
     pio_sm_set_enabled(pio, 1, true);
 
+    printf("Start main loop\n");
     main_loop();
 }
 
@@ -679,6 +693,35 @@ void set_auto(uint8_t state)
     status_sc(state, STATUS_AUTO);
 
     write_ee(EE_ADDRESS,EE_AUTOLOAD,state);
+}
+
+// reset everything to it's default, and update eeprom.
+void reset_all()
+{
+    // reset colours.
+    ink = DEF_INK;
+    paper = DEF_PAPER;
+    border = DEF_PAPER;
+    ink_alt = DEF_INK_ALT;
+
+    // reset font
+    fontno = DEFAULT_FONT_NO;
+
+    // reset pallate
+    memcpy((uint8_t *)&colour_palette_vdg,(uint8_t *)&colour_palette_vdg_default,sizeof(colour_palette_vdg));
+
+    // Clear status bits.
+    status_sc(false,STATUS_EXTMODE);    // 80 col off
+    status_sc(false,STATUS_DEBUG);      // debug off
+    status_sc(false,STATUS_LOWER);      // lower case off
+    status_sc(false,STATUS_ARTI_MASK);  // artiface off
+    
+    // autoload on.
+    status_sc(true,STATUS_AUTO);    
+
+    // save then reload eeprom
+    save_ee();
+    load_ee();
 }
 
 void check_command()

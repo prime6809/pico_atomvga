@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.12)
 
+
+# Set this to pico if compiling for RP2040, pico 2 if compiling for RP2350
+set(PICO_BOARD pico2)
+
 include(pico_sdk_import.cmake)
 
 include(pico_extras_import.cmake)

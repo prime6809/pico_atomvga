@@ -6,7 +6,7 @@
 .program test
 
 .define public PIN_A0 2
-.define PIN_1MHZ 18
+.define public PIN_1MHZ 18
 .define public PIN_R_NW 19
 .define public PIN_SEL1 26
 
